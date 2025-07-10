@@ -6,8 +6,9 @@
     <link rel="icon" type="image/png" href="/img/favicon.png" />
     <link rel="stylesheet" href="/common.css" />
     <style>
-        #footer a { font-weight: bold; }
+        #footer a { font-weight: bold; text-decoration: none; }
         #footer img { height: 1.5em; vertical-align: middle; }
+        #email { opacity: 0.5; }
     </style>
 </head>
 
@@ -27,12 +28,12 @@
     </div>
 
     <div id="footer">
-        <p><span dir="rtl"></span> <img src="/img/instagram.png"> <a href="https://www.instagram.com/soundform.art">@soundform.art</a></p>
+        <p><span id="email"></span><a href="https://www.instagram.com/soundform.art">@<u>soundform.art</u> <img src="/img/instagram.png"></a></p>
     </div>
 
     <script>
-        let p = document.querySelector('#footer span');
-        setTimeout(() => p.textContent = '\u202Estnirp :liame', Math.random() * 1000);
+        let p = document.querySelector('#email');
+        p.textContent = '\u202Estnirp\u202c';
     </script>
 </body>
 
