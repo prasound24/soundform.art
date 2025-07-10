@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>The Art of Sound Forms</title>
+  <link rel="icon" type="image/png" href="/img/favicon.png" />
+  <link rel="stylesheet" href="/common.css" />
+  <link rel="stylesheet" href="3dgs.css" />
+</head>
+
+<body>
+    <h1 style="display:none">
+        <a href="/">Home</a>
+        | <a href="/prints">Prints</a>
+        
+        <span></span>
+        <a href="/about">About</a>
+    </h1>
+
+  <div class="wave_spanner" style="display:none">
+    <img src="/img/formula_div.png">
+    <img src="/img/formula.png">
+  </div>
+
+  <canvas id="webgl"></canvas>
+  <code id="codemirror" class="debug"></code>
+
+  <div id="controls">
+    <button id="audio" title="Upload audio" class="debug"><img src="/img/ico/mic.png"></button>
+    <button id="download" title="Download .PLY" class="debug"><img src="/img/ico/file.png"></button>
+  </div>
+
+  </script>
+
+  <script id="vert-glsl" type="x-shader/x-vertex">
+    out vec2 vUv;
+
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+    }
+  </script>
+
+  <script id="tonemapping-glsl" type="x-shader/x-fragment">
+    uniform sampler2D tDiffuse;
+    in vec2 vUv;
+
+    void main() {
+      vec4 o = texture(tDiffuse, vUv);
+      gl_FragColor = tanh(o);
+    }
+  </script>
+
+  <script id="accumulator-glsl" type="x-shader/x-fragment">
+    in vec2 vUv;
+
+    uniform float iNumFrames;
+    uniform sampler2D tDiffuse;
+    uniform sampler2D tAccumulator;
+
+    void main() {
+      vec4 d = texture(tDiffuse, vUv);
+      vec4 o = texture(tAccumulator, vUv);
+      o.a = min(o.a, iNumFrames);
+      o = mix(o, d, 1./(o.a + 1.));
+      o.a += 1.;
+      gl_FragColor = o;
+    }
+  </script>
+
+  <script id="sunrays-glsl" type="x-shader/x-fragment">
+    uniform sampler2D tDiffuse;
+    uniform  float iTime;
+    in vec2 vUv;
+    
+    float hash( vec2 p ) {
+      return fract(sin(dot(p, vec2(41, 289)))*45758.5453);
+    }
+ 
+    vec4 radialBlur(sampler2D img, vec2 uv) {
+        float SAMPLES = 24.;
+        float decay = 0.97; 
+        float density = 0.5; 
+        float weight = 0.1; 
+        
+        vec2 tuv =  uv - .5;
+        vec2 dTuv = tuv*density/SAMPLES;
+        vec4 col = texture(img, uv);
+        uv += dTuv*(hash(uv + fract(iTime))*2. - 1.);
+        
+        for(float i = 0.; i < SAMPLES; i++){
+            uv -= dTuv;
+            vec4 src = texture(img, uv);
+            col += weight * pow(src, vec4(8));
+            weight *= decay;
+        }
+        
+        col *= 1. - dot(tuv, tuv)*.75;
+        return sqrt(smoothstep(0., 1., col));
+    }
+
+    void main() {
+      gl_FragColor = radialBlur(tDiffuse, vUv);
+    }
+  </script>
+
+  <script id="vignette-glsl" type="x-shader/x-fragment">
+    in vec2 vUv;
+    uniform sampler2D tDiffuse;
+    uniform sampler2D tImageLogo;
+    uniform sampler2D tSignature;
+
+    float vignette() {
+        vec2 uv = vUv;
+        uv.xy *= 1. - uv.yx;
+        float v = uv.x * uv.y * 15.0;
+        return pow(v, 0.125);
+    }
+
+    void addImageLogo(inout vec4 o, vec2 p, sampler2D logo,
+      float alpha, vec2 offset, mat2 lsmat) {
+        vec2 ls = vec2(textureSize(logo, 0));
+        vec2 bl = offset + ls*lsmat;
+        vec2 p2 = p - bl;
+
+        if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.) {
+            vec4 col = texelFetch(logo, ivec2(p2), 0);
+            float gray = (col.r + col.g + col.b) / 3.0;
+            o.rgb = mix(o.rgb, 1.0 - vec3(gray), col.a * alpha);
+        }
+    }
+
+    void main() {
+      vec2 wh = vec2(textureSize(tDiffuse, 0));
+      vec2 p = vUv * wh;
+      vec4 o = texture(tDiffuse, vUv);
+      addImageLogo(o, p, tImageLogo, 0.2, vec2(0), mat2(0.5));
+      addImageLogo(o, p, tSignature, 0.8, vec2(wh.x, 0), mat2(-1, -1, 0, 1));
+      o *= vignette();
+      gl_FragColor = vec4(o.rgb, 1);
+    }
+  </script>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/lib/three/three.module.js",
+        "three/addons/": "/lib/three/examples/jsm/",
+        "@sparkjsdev/spark": "/lib/spark.module.js",
+        "@codemirror/view": "/lib/codemirror/@codemirror_view.js",
+        "@codemirror/language": "/lib/codemirror/chunk-MED5PSS5.js",
+        "@lezer/highlight": "/lib/codemirror/chunk-MED5PSS5.js"
+      }
+    }
+  </script>
+
+  <script type="module" src="3dgs.js"></script>
+</body>
+
+</html>

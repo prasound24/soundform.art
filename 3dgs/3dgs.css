@@ -1,0 +1,49 @@
+#webgl {
+  z-index: -1;
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
+  left: 0;
+  top: 0;
+}
+
+#controls {
+  position: fixed;
+  bottom: 0.5em;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+#controls button {
+  background: none;
+}
+
+#spark {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  margin: 1em;
+  font-size: 0.75rem;
+  opacity: 0.25;
+}
+
+#spark a {
+  color: inherit;
+}
+
+#fps {
+  position: fixed !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  opacity: 0.5;
+}
+
+#codemirror .cm-editor {
+  max-height: 20em;
+}
+
+#codemirror .cm-editor:not(.cm-focused) {
+  opacity: 0.5;
+  background: none;
+}

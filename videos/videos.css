@@ -1,0 +1,25 @@
+.stage {
+  margin-top: 2em;
+}
+
+.stage.grid > a {
+  width: 25%;
+}
+
+.stage img {
+  width: 100%
+}
+
+.stage a img {
+  height: inherit;
+}
+
+.stage div {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.stage div > * {
+  flex: 1;
+}

@@ -1,0 +1,58 @@
+canvas {
+  width: 100%;
+  height: 10vh;
+  margin: 0.5rem 0;
+}
+
+#start {
+  margin: 1rem auto;
+}
+
+progress-gif {
+  font-size: 4rem;
+  width: 1em;
+  height: 1em;
+  position: relative;
+  display: inline-block;
+}
+
+progress-gif::before, progress-gif::after {
+  content: '';
+  display: inline-block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  transition: all 250ms;
+}
+
+progress-gif::before {
+  background: no-repeat center/contain url('/img/up.png');
+  animation: 1s linear 0s infinite alternate progress-gif-keyframes;
+}
+
+progress-gif::after {
+  background: no-repeat center/contain url('/img/down.png');
+  animation: 0.7071s linear 0s infinite alternate progress-gif-keyframes;
+}
+
+@keyframes progress-gif-keyframes {
+  from {
+    opacity: 1.0;
+  }
+  to {
+    opacity: 0.5;
+  }
+}
+
+#curvature {
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+#curvature path {
+  stroke-width: 0.002;
+  stroke: #fff;
+  fill: transparent;
+}

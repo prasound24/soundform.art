@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>The Art of Sound Forms</title>
+  <link rel="icon" type="image/png" href="/img/favicon.png" />
+  <link rel="stylesheet" href="/common.css" />
+  <link rel="stylesheet" href="create.css" />
+</head>
+
+<body class="empty">
+    <h1>
+        <a href="/">Home</a>
+        | <a href="/prints">Prints</a>
+        
+        <span></span>
+        <a href="/about">About</a>
+    </h1>
+
+  <div class="wave_spanner">
+    <img src="/img/formula_div.png">
+    <img src="/img/formula.png">
+  </div>
+
+  <p id="error_info"></p>
+
+  <p>Click the button to start recording or <span id="upload"><u>upload audio</u></span>.</p>
+
+  <div id="rec_btn_wrapper">
+    <button id="record"><img src="/img/ico/mic.png"></button>
+    <button id="stop_recording"><img src="/img/ico/stop.png"><span>00:00</span></button>
+  </div>
+
+  <div id="wave_wrapper">
+    <div id="wave_bounds">
+      <div id="wave_start">
+        <div id="ptr_start" class="ptr left"></div>
+      </div>
+      <div id="wave_end">
+        <div id="ptr_end" class="ptr right"></div>
+        <span id="wave_label">0.00 s</span>
+      </div>
+    </div>
+
+    <canvas id="wave" width="2048" height="128"></canvas>
+
+    <div id="wave_play_info">
+      <button id="play_sound" class="small_btn"><img src="/img/ico/play.png">&nbsp;Play</button>
+      <button id="download_audio" class="small_btn"><img src="/img/ico/save.png">&nbsp;Save</button>
+    </div>
+  </div>
+
+  <div id="top_info">
+    <p id="audio_info" class="extras"></p>
+  </div>
+
+  <div id="canvas_and_config">
+    <div id="settings">
+      <div class="setting2">
+        <div class="top">
+          <span class="name">debug</span>
+          <span class="spacer"></span>
+          <span class="b dec">-</span>
+          <span class="value">0.0</span>
+          <span class="units">ms</span>
+          <span class="b inc">+</span>
+        </div>
+        <div class="slider">
+          <svg class="bar" viewBox="0 -5 100 10" preserveAspectRatio="none">
+            <line class="bg" x2="100"/>
+            <line class="fg" x2="50"/>
+          </svg>
+          <svg class="dot" viewBox="-1 -1 2 2" style="left:50%">
+            <circle r="1"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div id="art_main_wrapper">
+      <div id="art_main">
+        <div style="height:0;z-index:1;position:relative;"><svg class="progress" style="display: none"></svg></div>
+        <canvas id="disk" width="1024" height="1024"></canvas>
+        
+        <div id="bottom_info">
+          <p id="audio_name" contenteditable="true" spellcheck="false"></p>
+        </div>
+
+        <div id="gallery">
+          <canvas width="256" height="256"></canvas>
+          <canvas width="256" height="256"></canvas>
+          <canvas width="256" height="256"></canvas>
+          <canvas width="256" height="256"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="buy_buttons" class="buttons">
+    <button id="preview">Save to gallery</button>
+  </div>
+
+  <script type="module" src="create.js"></script>
+</body>
+
+</html>

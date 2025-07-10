@@ -1,0 +1,61 @@
+.stage {
+  margin-top: 2em;
+  ;
+}
+
+.stage img {
+  width: 100%
+}
+
+.stage a img {
+  height: inherit;
+}
+
+.stage div {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.stage div>* {
+  flex: 1;
+}
+
+@media(orientation:portrait) {
+  .stage .landscapes {
+    flex-direction: column;
+  }
+
+  .stage .landscapes a {
+    width: 100%;
+  }
+}
+
+#prints {
+  text-align: center;
+  margin: 2em 0;
+}
+
+#prints a {
+  color: #ccc;
+  font-size: 0.8rem;
+}
+
+#make_your_own {
+  margin: 2em 0;
+}
+
+#sounds {
+  text-align: center;
+}
+
+#sounds a {
+  color: #888;
+  font-size: 0.8rem;
+  margin: 0 1em;
+}
+
+iframe {
+  aspect-ratio: 16/9;
+  width: 100%;
+}

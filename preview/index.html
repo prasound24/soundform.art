@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>The Art of Sound Forms</title>
+  <link rel="icon" type="image/png" href="/img/favicon.png" />
+  <link rel="stylesheet" href="/common.css" />
+  <link rel="stylesheet" href="preview.css" />
+</head>
+
+<body>
+    <h1>
+        <a href="/">Home</a>
+        | <a href="/prints">Prints</a>
+        
+        <span></span>
+        <a href="/about">About</a>
+    </h1>
+
+  <div class="wave_spanner" id="wave_top">
+    <img src="/img/formula_div.png">
+    <img src="/img/formula.png">
+  </div>
+
+  <div class="preview">
+    <div id="sound_info_wrapper" style="position:relative; height:0; font-size:0.75rem; width:100%">
+      <p id="sound_info" style="text-align:left; padding:1em; color:#888"></p>
+    </div>
+    <a href="/create">
+      <img class="wide" src="/img">
+    </a>
+  </div>
+
+  <div id="wave_wrapper">
+    <canvas id="wave" width="2048" height="64"></canvas>
+    <i id="vline" style="display:none"></i>
+  </div>
+
+  <audio></audio>
+
+  <div class="giclee">
+    <p class="price">$0,000
+    <p>40&times;40 inches Giclee fine art print.
+    Archival quality acid free paper, Somerset 300 GSM. 
+    The print comes with a certificate of authenticity.
+
+    <div class="buttons">
+        <a class="button" href="/checkout">Add to cart</a>
+    </div>
+  </div>
+
+  <script type="module" src="preview.js"></script>
+</body>
+
+</html>

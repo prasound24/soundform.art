@@ -1,0 +1,36 @@
+.preview {
+  display: flex;
+  flex-direction: row;
+  padding: 1em;
+  margin: 1em;
+  color: #888;
+}
+
+.preview img {
+  height: 10vw;
+  border: 1px solid #111;
+}
+
+.preview div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: baseline;
+}
+
+.preview p {
+  padding-left: 1em;
+  margin: 0.25em;
+}
+
+.preview a {
+  text-decoration: underline;
+  color: inherit;
+}
+
+.preview i {
+  font-style: normal;
+  color: #444;
+}
+
+

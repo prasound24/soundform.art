@@ -1,0 +1,71 @@
+ #info {
+   text-align: center;
+ }
+
+ #art_main,
+ #buy_buttons,
+ #settings {
+   display: none;
+ }
+
+ .grid img {
+   cursor: pointer;
+ }
+
+ .grid .a,
+ .grid .b {
+   display: none;
+ }
+
+ .grid a,
+ .grid>*>span {
+   text-decoration: none;
+   color: #888;
+   text-align: center;
+   display: block;
+ }
+
+ .grid .a:not(:empty):before {
+   content: ' ';
+   display: inline-block;
+   width: 1em;
+   height: 1em;
+   margin-right: 0.25em;
+   cursor: pointer;
+   background: no-repeat center/contain url('/img/ico/loud.png');
+ }
+
+ .grid>*:first-child {
+   display: none;
+ }
+
+ .grid .progress {
+   background: no-repeat center/10% url("/img/ico/progress.png");
+ }
+
+ .grid .error {
+   background: no-repeat center/10% url("/img/ico/error.png");
+ }
+
+ .grid .ready {
+   background: no-repeat center/10% url("/img/ico/fav.png");
+ }
+
+ .grid .progress.current {
+   animation: 1s linear 0s infinite normal keyframes3;
+ }
+
+ @keyframes keyframes3 {
+   from {
+     transform: rotate(0deg);
+   }
+
+   to {
+     transform: rotate(360deg);
+   }
+ }
+
+
+ body {
+   overflow-x: hidden;
+ }

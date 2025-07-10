@@ -1,0 +1,95 @@
+@font-face {
+  font-family: Rubik-Black;
+  src: url(/Rubik-Black.ttf);
+}
+
+p {
+  text-align: center;
+}
+
+#info {
+  display: flex;
+  color: #888;
+}
+
+#info span {
+  padding: 1em;
+}
+
+#info button {
+  cursor: pointer;
+  opacity: 0.5;
+  border-radius: inherit;
+  padding: 1rem;
+  background: inherit;
+  display: inherit;
+  margin: inherit;
+  font-weight: bold;
+  font-size: 0.6rem;
+  font-family: Rubik-Black;
+}
+
+#info button img {
+  height: 1.5rem;
+}
+
+#info button:hover {
+  opacity: 1;
+  background: #444;
+}
+
+#fps {
+  cursor: pointer;
+  user-select: none;
+  width: 4em;
+}
+
+#frame_id {
+  cursor: pointer;
+  width: 3em;
+  user-select: none;
+}
+
+#extras {
+  display: flex;
+  flex-direction: row;
+  display: none;
+}
+
+#config {
+  color: #888;
+}
+
+#config p {
+  text-align: left;
+}
+
+#config div {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  padding-left: 2em;
+}
+
+#config span {
+  width: 6em;
+}
+
+#config input {
+  cursor: pointer;
+  opacity: 0.5;
+}
+
+canvas#webgl {
+  width: 100%;
+  margin-top: 2em;
+}
+
+img {
+  border: none;
+  outline: none;
+}
+
+button#save_hdr {
+  display: none;
+}

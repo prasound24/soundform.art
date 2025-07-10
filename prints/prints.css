@@ -1,0 +1,14 @@
+#prints {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#prints a {
+  padding: 2em;
+}
+
+#prints img {
+  height: auto;
+  width: 100%;
+}
