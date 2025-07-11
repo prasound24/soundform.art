@@ -61,7 +61,7 @@ p {
 h1 {
   user-select: none;
   font-family: Rubik;
-  color: #888;
+  opacity: 0.5;
   margin: 0;
   font-weight: normal;
   font-size: 1rem;

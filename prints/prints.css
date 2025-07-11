@@ -8,7 +8,26 @@
   padding: 2em;
 }
 
+#prints a:first-child {
+  padding-top: 0;
+}
+
 #prints img {
   height: auto;
   width: 100%;
+}
+
+#insta {
+  text-align: center;
+}
+
+#insta a {
+  font-weight: bold;
+  text-decoration: none;
+  color: inherit;
+}
+
+#insta img {
+  height: 1.5em;
+  vertical-align: middle;
 }
