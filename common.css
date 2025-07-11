@@ -184,8 +184,10 @@ a.button,
 button,
 a.button,
 .buttons a {
-  background: #841;
-  color: #fff;
+  --background: #841;
+  font-weight: bold;
+  text-decoration: underline;
+  color: #888;
   border-radius: 1em;
   padding: 1rem;
   transition: all 250ms;
@@ -194,7 +196,8 @@ a.button,
 button:hover,
 a.button:hover,
 .buttons a:hover {
-  background-color: #952;
+  --background-color: #952;
+  color: #fff;
 }
 
 button img,

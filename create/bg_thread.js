@@ -141,6 +141,10 @@ async function computeImgAmps(channels, conf, [pmin, pmax]) {
     oscillators[ch].damping = 10 ** conf.damping;
   }
 
+  let profile = new Float32Array(3);
+  for (let x = 0; x < profile.length; x++)
+    profile[x] = Math.cos(x / profile.length * Math.PI / 2) ** 2;
+
   let steps = conf.numSteps;
   let y_prev = 0, ts = Date.now();
 
@@ -159,12 +163,26 @@ async function computeImgAmps(channels, conf, [pmin, pmax]) {
       let sum = 0;
       for (let ch = 0; ch < nch; ch++)
         sum += utils.sqr(oscillators[ch].wave[x] - channels[ch][t]);
+      let sqrt_sum = Math.sqrt(sum);
 
-      let i = y * strlen + x;
-      img_amps.data[i] = Math.max(img_amps.data[i], Math.sqrt(sum));
+      //if (sqrt_sum > img_amps.data[y * strlen + x])
+      //  img_amps.data[y * strlen + x] = sqrt_sum;
+
+      let plen = profile.length;
+
+      for (let dy = -plen + 1; dy < plen; dy++) {
+        if (y + dy < 0 || y + dy >= steps)
+          continue;
+        let i = (y + dy) * strlen + x;
+        let a = sqrt_sum * profile[Math.abs(dy)];
+        dcheck(a >= 0);
+        if (a > img_amps.data[i])
+          img_amps.data[i] = a;
+      }
     }
 
-    if (y <= y_prev) continue;
+    if (y <= y_prev)
+      continue;
     y_prev = y;
 
     if (Date.now() > ts + 250) {
