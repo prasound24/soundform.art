@@ -418,7 +418,7 @@ async function downloadMesh() {
 
 async function generateSplats(name = 'sphere', audio = null) {
     let cw = CW, ch = CH, ts = Date.now();
-    let depth = +uargs.get('d') || 3;
+    let depth = +uargs.get('depth') || 3;
 
     gsm0 = await new Promise((resolve, reject) => {
         worker.onmessage = (e) =>
@@ -441,7 +441,7 @@ async function generateSplats(name = 'sphere', audio = null) {
         gsm0.uniforms[name] = new utils.Float32Tensor([h, w, ch], u.data);
     }
 
-    console.debug('generateSplats:', name, Date.now() - ts, 'ms',
+    console.debug('generateSplats:', 'type=' + name, Date.now() - ts, 'ms',
         (cw * ch / 4e6).toFixed(1), 'M splats, SID:', sid);
 
     let chunks = splitMeshIntoChunks(gsm0);
@@ -507,7 +507,7 @@ async function initAudioMesh() {
         audio.channels.map(ch => ch.length).join(','), 'samples');
 
     clearScene();
-    await generateSplats('string', audio);
+    await generateSplats('audio', audio);
 }
 
 async function initSceneBackground() {

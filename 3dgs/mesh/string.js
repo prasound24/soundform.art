@@ -110,10 +110,10 @@ export function createShader(w, h, { sid, rgb, audio } = {}) {
     if (audio) {
         amps = getAverageSpectrum(audio);
     } else {
-        let vol = 0.1 * (hash11(sid) + 0.001);
+        let vol = 10 * hash11(sid);
         for (let s = 0; s < amps.length; s++) {
             amps[s] = hash11(s + sid) - 0.5;
-            if (s > 0) amps[s] /= vol * Math.exp(s);
+            if (s > 0) amps[s] *= vol * Math.exp(-s);
             //if (s % 2) amps[s] *= 0.0;
         }
     }
@@ -144,6 +144,7 @@ export function createShader(w, h, { sid, rgb, audio } = {}) {
     //        genMesh(xyzw, rgba, str4, w, h, x, y, rgb);
 
     return {
+        iColor: rgb,
         iMesh: new Float32Tensor([h, w, 4], str4),
         //iXyzw: new Float32Tensor([h, w, 4], xyzw),
         //iRgba: new Float32Tensor([h, w, 4], rgba),
