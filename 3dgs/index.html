@@ -126,7 +126,7 @@
         if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.) {
             vec4 col = texelFetch(logo, ivec2(p2), 0);
             float gray = (col.r + col.g + col.b) / 3.0;
-            o.rgb = mix(o.rgb, 1.0 - vec3(gray), col.a * alpha);
+            o.rgb = mix(o.rgb, vec3(gray), col.a * alpha);
         }
     }
 

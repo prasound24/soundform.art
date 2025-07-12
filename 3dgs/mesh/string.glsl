@@ -9,6 +9,6 @@ void mainSplatModifier(inout Gsplat gs) {
   float s = (t + 0.01) / (1.25 + pos.w);
   gs.center = s * pos.xzy;
   gs.scales = s / vec3(w);
-  gs.rgba.rgb = 0.5 + 0.5 * cos(PI * 2. * (t + pos.w / 2. + iColor));
-  gs.rgba.a = 0.1;
+  gs.rgba.rgb = 0.5 + 0.5 * cos(PI * 2. * (t + pos.w / 2. + iColor.rgb));
+  gs.rgba.a = iColor.a;
 }
