@@ -62,7 +62,7 @@
       vec4 d = texture(tDiffuse, vUv);
       vec4 o = texture(tAccumulator, vUv);
       o.a = min(o.a, iNumFrames);
-      o = mix(o, d, 1./(o.a + 1.));
+      o.rgb = mix(o, d, 1./(o.a + 1.)).rgb;
       o.a += 1.;
       gl_FragColor = o;
     }

@@ -5,7 +5,7 @@ const sid = parseFloat('0.' + (uargs.get('sid') || '')) || Math.random();
 const sphRadius = +uargs.get('r') || 2.0;
 const camDist = +uargs.get('cam') || 1.5;
 const backgroundURL = uargs.get('bg') || '/img/bb3.jpg';
-const colorRGBA = (uargs.get('c') || '0.1,0.2,0.3,0.1')
+const colorRGBA = (uargs.get('c') || '0.1,0.2,0.3,1.0')
   .split(',').map(x => +x || 0.5 + 0.5 * Math.random());
 const imgSize = (uargs.get('i') || '0x0').split('x').map(x => +x);
 const rotation = +uargs.get('rot') || 0;
@@ -55,6 +55,7 @@ if (quality == 1) {
   spark.maxStdDev = 4;
   spark.apertureAngle = Math.PI / 150;
   spark.focalDistance = 0;
+  spark.focalAdjustment = 1;
 }
 
 window.camera = camera;
@@ -62,6 +63,7 @@ window.scene = scene;
 window.spark = spark;
 
 const animateTime = dyno.dynoFloat(0);
+const animateFrame = dyno.dynoInt(0);
 
 const controls = new OrbitControls(camera, canvas);
 controls.minDistance = 0;
@@ -118,9 +120,9 @@ function updateTextureMesh() {
       uniform.data, w, h, fmt, THREE.FloatType);
     tex.needsUpdate = true;
     tex.wrapS = THREE.RepeatWrapping;
-    tex.minFilter = THREE.LinearFilter;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
     tex.magFilter = THREE.LinearFilter;
-
     gsm0.textures[name] = dyno.dynoSampler2D(tex);
   }
 }
@@ -143,6 +145,7 @@ function appendMesh(gsm) {
   const uniforms = {};
 
   uniforms.iTime = animateTime;
+  uniforms.iFrame = animateFrame;
   uniforms.iShowDots = dyno.dynoBool(showDots);
 
   for (let name in gsm.uniforms) {
@@ -240,10 +243,10 @@ const vignettePass = new ShaderPass({
   fragmentShader: $('#vignette-glsl').textContent,
 });
 const savePass = new SavePass(
-  new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
+  new THREE.WebGLRenderTarget(1, 1, { type: quality ? THREE.FloatType : THREE.HalfFloatType }));
 const accumulatorPass = new ShaderPass({
   uniforms: {
-    iNumFrames: { value: rotation ? 0 : 1000 },
+    iNumFrames: { value: rotation ? 0 : 120*60 },
     tDiffuse: { value: null },
     tAccumulator: { value: null },
   },
@@ -290,6 +293,7 @@ renderer.setAnimationLoop((time) => {
   }
 
   animateTime.value = time / 1000;
+  animateFrame.value += 1;
   scene.children.map(m => m.numSplats > 0 && m.updateVersion());
   resizeCanvas();
   controls.update();
