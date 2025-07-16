@@ -19,6 +19,17 @@
   background: none;
 }
 
+#controls button:hover {
+  background: #000;
+  filter: invert(1);
+}
+
+body.paused #pause,
+body.codemirror #show_code {
+  background: #000;
+  filter: invert(1);
+}
+
 #spark {
   position: fixed;
   right: 0;
@@ -40,10 +51,13 @@
 }
 
 #codemirror .cm-editor {
-  max-height: 20em;
+  max-height: 40em;
 }
 
-#codemirror .cm-editor:not(.cm-focused) {
-  opacity: 0.5;
-  background: none;
+#codemirror .cm-editor {
+  background: #0008;
+}
+
+body:not(.codemirror) #codemirror {
+  display: none;
 }

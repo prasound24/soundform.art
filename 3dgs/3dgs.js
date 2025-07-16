@@ -12,6 +12,7 @@ const rotation = +uargs.get('rot') || 0;
 const signature = uargs.get('l') || 'soundform.art';
 const showDots = +uargs.get('dots') || 0;
 const quality = +uargs.get('q') || 1.0;
+const aperture = +uargs.get('aperture') || 150;
 
 import * as THREE from "three";
 import Stats from 'three/addons/libs/stats.module.js';
@@ -53,9 +54,9 @@ scene.add(spark);
 
 if (quality == 1) {
   spark.maxStdDev = 4;
-  spark.apertureAngle = Math.PI / 150;
+  spark.apertureAngle = Math.PI / aperture;
   spark.focalDistance = 0;
-  spark.focalAdjustment = 1;
+  spark.focalAdjustment = 2;
 }
 
 window.camera = camera;
@@ -75,12 +76,12 @@ statsUI.domElement.id = 'fps';
 statsUI.domElement.style = isEmbedded ? 'none' : '';
 document.body.appendChild(statsUI.domElement);
 
-canvas.addEventListener('dblclick', (e) => {
+$('#pause').onclick = () => {
   controls.enabled = !controls.enabled;
-  console.log('controls.enabled:', controls.enabled);
-});
+  document.body.classList.toggle('paused', !controls.enabled);
+};
 
-$('#audio').onclick = initAudioMesh;
+$('#audio').onclick = () => initAudioMesh();
 
 const worker = new Worker('./worker.js', { type: 'module' });
 let gsm0 = null;
@@ -246,7 +247,7 @@ const savePass = new SavePass(
   new THREE.WebGLRenderTarget(1, 1, { type: quality ? THREE.FloatType : THREE.HalfFloatType }));
 const accumulatorPass = new ShaderPass({
   uniforms: {
-    iNumFrames: { value: rotation ? 0 : 120*60 },
+    iNumFrames: { value: rotation ? 0 : 120 * 60 },
     tDiffuse: { value: null },
     tAccumulator: { value: null },
   },
@@ -330,15 +331,19 @@ async function initCodeMirror() {
   });
 
   editor.view.dom.addEventListener('focusin', (e) => {
-    controls.enabled = false;
+    //controls.enabled = false;
   });
 
   editor.view.dom.addEventListener('focusout', (e) => {
     //console.log('Updating SplatMesh GLSL...');
     scene.children.map(m => m.numSplats > 0 && m.updateGenerator());
     clearAccumulator();
-    controls.enabled = true;
+    //controls.enabled = true;
   });
+
+  $('#show_code').onclick = () => {
+    document.body.classList.toggle('codemirror');
+  };
 }
 
 function interpolateX(res, src, [xmin, xmax], [ymin, ymax], a = 0) {
@@ -512,7 +517,7 @@ async function initAudioMesh() {
     audio.channels.map(ch => ch.length).join(','), 'samples');
 
   clearScene();
-  await generateSplats('audio', audio);
+  await generateSplats('string', audio);
 }
 
 async function initSceneBackground() {

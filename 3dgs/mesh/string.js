@@ -19,9 +19,8 @@ function initStr(xyzw, w, h, x, y, amps, sid = 0) {
 
   for (let s = 0; s < amps.length; s++) {
     let arg = phi * s;
-    //arg *= 2;
     pz += amps[s] * Math.cos(arg);
-    pw += amps[amps.length - 1 - s] * Math.sin(arg);
+    pw += amps[s] * Math.sin(arg);
   }
 
   px *= Math.cos(pz);
@@ -74,7 +73,7 @@ function moveStr(tmp, xyzw, w, h, x, y) {
 
   for (let i = 0; i < 4; i++) {
     let ds = c[i] - d[i];
-    ds += (0.25 * dt2 / dx2) * (l[i] + r[i] - c[i] * 2);
+    ds += (0.5 * dt2 / dx2) * (l[i] + r[i] - c[i] * 2);
     //ds -= (5e-8 * dt2 / dx2 / dx2) * (ll[i] + rr[i] - (l[i] + r[i]) * 4 + c[i] * 6);
     c[i] += ds;
   }
@@ -85,16 +84,19 @@ function moveStr(tmp, xyzw, w, h, x, y) {
 
 export function createShader(w, h, { sid, rgb, audio } = {}) {
   let str4 = new Float32Array(w * h * 4);
-  let amps = new Float32Array(60);
+  let amps = new Float32Array(w / 2);
 
   if (audio) {
     amps = getAverageSpectrum(audio);
   } else {
-    let vol = 5 * hash11(sid);
+    let m = 3, vol = 15 * hash11(sid);
     for (let s = 0; s < amps.length; s++) {
-      amps[s] = hash11(s + sid) - 0.5;
-      if (s > 0) amps[s] *= vol / (s*s);
+      if (s % m) continue;
+      amps[s] = hash11(s + sid) * 2.0 - 1.0; // -1..1
+      if (s > 0) amps[s] *= vol / (s**2.5);
     }
+    //amps.fill(0);
+    //amps[2] = 0.6;
   }
 
   console.debug('String amps:', [...amps].map(a => a.toFixed(2)).join(',')
