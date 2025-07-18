@@ -47,7 +47,7 @@ function tex(res, rgba, w, h, x, y) {
   res[3] = rgba[i * 4 + 3];
 }
 
-function moveStr(tmp, xyzw, w, h, x, y) {
+function moveStr(tmp, xyzw, w, h, x, y, [dx, dt]) {
   if (tmp.length == 0)
     for (let i = 0; i < 6; i++)
       tmp[i] = vec4();
@@ -67,12 +67,11 @@ function moveStr(tmp, xyzw, w, h, x, y) {
   mul(ll, 1.0 / dot(ll, c));
   mul(rr, 1.0 / dot(rr, c));
 
-  let dx2 = 1 / (w * w);
-  let dt2 = dx2; // 1 / (h * h);
+  let dtdx2 = (dt / dx) ** 2;
 
   for (let i = 0; i < 4; i++) {
     let ds = c[i] - d[i];
-    ds += (0.1 * dt2 / dx2) * (l[i] + r[i] - c[i] * 2);
+    ds += dtdx2 * (l[i] + r[i] - c[i] * 2);
     //ds -= (5e-8 * dt2 / dx2 / dx2) * (ll[i] + rr[i] - (l[i] + r[i]) * 4 + c[i] * 6);
     c[i] += ds;
   }
@@ -81,18 +80,18 @@ function moveStr(tmp, xyzw, w, h, x, y) {
   return c;
 }
 
-export function createShader(w, h, { sid, rgb, audio } = {}) {
+export function createShader(w, h, { sid, rgb, audio, timespan } = {}) {
   let str4 = new Float32Array(w * h * 4);
-  let amps = new Float32Array(w);
+  let amps = new Float32Array(30);
 
   if (audio) {
     amps = getAverageSpectrum(audio);
   } else {
     let vol = hash11(sid);
     for (let s = 0; s < amps.length; s++) {
-      if (s % 4) continue;
+      if (s % 3) continue;
       amps[s] = hash11(s + sid) * 2.0 - 1.0; // -1..1
-      if (s > 0) amps[s] *= vol / ((s/12)**2);
+      if (s > 0) amps[s] *= vol / ((s / 6) ** 2);
     }
   }
 
@@ -104,10 +103,14 @@ export function createShader(w, h, { sid, rgb, audio } = {}) {
       initStr(str4, w, h, x, y, amps, sid);
 
   let tmp = [];
+  let dx = timespan[0] / w;
+  let dt = timespan[1] / h;
+  console.debug('dt/dx=' + (dt / dx).toFixed(2));
+  if (dt / dx > 0.5) console.warn('dx/dt > 0.5 is unstable');
 
   for (let y = 2; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      let c = moveStr(tmp, str4, w, h, x, y - 1);
+      let c = moveStr(tmp, str4, w, h, x, y - 1, [dx, dt]);
       let i = y * w + x;
       str4.set(c, i * 4);
     }

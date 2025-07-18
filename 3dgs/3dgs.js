@@ -8,6 +8,7 @@ const backgroundURL = uargs.get('bg') || '/img/bb3.jpg';
 const colorRGBA = (uargs.get('c') || '0.1,0.2,0.3,1.0')
   .split(',').map(x => +x || 0.5 + 0.5 * Math.random());
 const imgSize = (uargs.get('i') || '0x0').split('x').map(x => +x);
+const timespan = (uargs.get('t') || '1x1').split('x').map(x => +x);
 const rotation = +uargs.get('rot') || 0;
 const signature = uargs.get('l') || '@soundform.art';
 const showDots = +uargs.get('dots') || 0;
@@ -436,7 +437,7 @@ async function generateSplats(name = 'sphere', audio = null) {
       resolve(e.data);
     worker.postMessage({
       type: 'mesh', name, cw, ch,
-      args: { sid, audio, rgb: colorRGBA, depth }
+      args: { sid, audio, rgb: colorRGBA, depth, timespan }
     });
   });
 
