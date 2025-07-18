@@ -9,7 +9,7 @@ const colorRGBA = (uargs.get('c') || '0.1,0.2,0.3,1.0')
   .split(',').map(x => +x || 0.5 + 0.5 * Math.random());
 const imgSize = (uargs.get('i') || '0x0').split('x').map(x => +x);
 const rotation = +uargs.get('rot') || 0;
-const signature = uargs.get('l') || 'soundform.art';
+const signature = uargs.get('l') || '@soundform.art';
 const showDots = +uargs.get('dots') || 0;
 const quality = +uargs.get('q') || 1.0;
 const aperture = +uargs.get('aperture') || 150;
@@ -58,6 +58,7 @@ if (quality == 1) {
   spark.focalDistance = 0;
   spark.focalAdjustment = 2;
 }
+console.log('spark.apertureAngle:', spark.apertureAngle);
 
 window.camera = camera;
 window.scene = scene;
@@ -532,7 +533,8 @@ async function initSceneBackground() {
 
 async function initSignatureTexture(text = signature) {
   let logo = await import("../lib/logo.js");
-  let { canvas } = await logo.createLogoTexture(text);
+  let size = 40 * renderer.domElement.height / 2160 | 0;
+  let { canvas } = await logo.createLogoTexture(text, size);
   vignettePass.uniforms.tSignature.value = new THREE.CanvasTexture(canvas);
 }
 
