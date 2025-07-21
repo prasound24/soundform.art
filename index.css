@@ -59,3 +59,7 @@ iframe {
   aspect-ratio: 16/9;
   width: 100%;
 }
+
+#make_your_own a {
+  font-weight: normal;
+}

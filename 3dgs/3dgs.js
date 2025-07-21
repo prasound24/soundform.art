@@ -13,7 +13,7 @@ const rotation = +uargs.get('rot') || 0;
 const signature = uargs.get('l') || '@soundform.art';
 const showDots = +uargs.get('dots') || 0;
 const quality = +uargs.get('q') || 1.0;
-const aperture = +uargs.get('aperture') || 150;
+const aperture = +uargs.get('aperture') || 0;
 
 import * as THREE from "three";
 import Stats from 'three/addons/libs/stats.module.js';
@@ -55,7 +55,7 @@ scene.add(spark);
 
 if (quality == 1) {
   spark.maxStdDev = 4;
-  spark.apertureAngle = Math.PI / aperture;
+  spark.apertureAngle = aperture ? Math.PI / aperture : 0;
   spark.focalDistance = 0;
   spark.focalAdjustment = 2;
 }

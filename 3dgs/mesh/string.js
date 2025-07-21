@@ -82,17 +82,20 @@ function moveStr(tmp, xyzw, w, h, x, y, [dx, dt]) {
 
 export function createShader(w, h, { sid, rgb, audio, timespan } = {}) {
   let str4 = new Float32Array(w * h * 4);
-  let amps = new Float32Array(30);
+  let amps = new Float32Array(w / 2);
 
   if (audio) {
     amps = getAverageSpectrum(audio);
   } else {
-    let vol = hash11(sid);
-    for (let s = 0; s < amps.length; s++) {
-      if (s % 3) continue;
-      amps[s] = hash11(s + sid) * 2.0 - 1.0; // -1..1
-      if (s > 0) amps[s] *= vol / ((s / 6) ** 2);
-    }
+    let add = (num, pow, vol) => {
+      for (let s = 0; s < amps.length; s += num) {
+        let a = hash11(s + sid * num) * 2.0 - 1.0; // -1..1
+        if (s > 0) a *= (s / num) ** pow;
+        amps[s] += a * vol;
+      }
+    };
+    add(24, -2.0, 0.5);
+    add(6, -2.5, 0.2);
   }
 
   console.debug('String amps:', [...amps].map(a => a.toFixed(2)).join(',')
