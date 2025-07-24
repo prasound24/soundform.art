@@ -9,13 +9,13 @@
 </head>
 
 <body>
-    <h1 style="display:none">
-        <a href="/"><img src="/img/favicon.png"></a>
-        <a href="/prints">Prints</a>
-        
-        <span></span>
-        <a href="/about">About</a>
-    </h1>
+  <h1 style="display:none">
+    <a href="/"><img src="/img/favicon.png"></a>
+    <a href="/prints">Prints</a>
+
+    <span></span>
+    <a href="/about">About</a>
+  </h1>
 
   <div class="wave_spanner" style="display:none">
     <img src="/img/formula_div.png">
@@ -32,6 +32,67 @@
     <button id="download" title="Download .PLY" class="debug"><img src="/img/ico/file.png"></button>
   </div>
 
+  <script id="spark-frag-glsl" type="x-shader/x-fragment">
+    const float DENS = 15.0;
+
+    float density(vec3 r) {
+        r *= maxStdDev*sqrt(0.5);
+        return DENS*vRgba.a*exp(-dot(r,r));
+        //return DENS*vRgba.a*smoothstep(1., 0., dot(r,r));
+    }
+
+    float erfc(float x) {
+        return sign(x)*sqrt(1. - exp2(-1.787776*x*x));
+    }
+
+    vec3 raymarchFog(vec3 ro, vec3 rd, vec3 pos) {
+        float SR = maxStdDev*sqrt(0.5);
+        vec3 lum = vec3(1);
+        vec3 rs = pos - ro;
+        float b = dot(rs, rd);
+        float h = dot(rs, rs) - b*b;
+        float sum = (1. + erfc(b*SR))/SR;
+        sum *= sqrt(PI)*0.5;
+        sum *= DENS*vRgba.a*exp(-SR*SR*h);
+        lum *= exp(-sum);
+        return lum;
+    }
+
+    vec2 raySphere(vec3 ro, vec3 rd, float r) {
+        float b = dot(ro, rd);
+        float h = b*b + r*r - dot(ro, ro);
+        return max(vec2(0), -b - sqrt(max(0., h))*vec2(1,-1));
+    }
+
+    void main() {
+      if (length(vSplatUv) > maxStdDev) discard;
+      fragColor = vRgba;
+      //fragColor.rgb *= fragColor.a;
+      //fragColor *= exp(-0.5*dot(vSplatUv,vSplatUv));
+      //fragColor *= smoothstep(1., 0., length(vSplatUv/maxStdDev));
+      fragColor *= cos(length(vSplatUv/maxStdDev)*PI)*0.5 + 0.5;
+      //fragColor.rgb = vec3(abs(vNdcOffset)/vNdcScales, 0);
+      return;
+
+      vec3 c = (vNdc - vec3(vNdcOffset,0))/vec3(vNdcScales,1); // sphere center
+      vec3 ro = vec3(vNdc.xy/vNdcScales,0);
+      vec3 rd = vec3(0,0,1);
+      vec3 sun = normalize(vec3(1,1,1)); // sunlight dir
+
+      vec4 sum = vec4(0);
+      vec2 t0 = raySphere(ro - c, rd, 1.);
+      float ds = (t0.y - t0.x)*0.15;
+
+      for (float t = t0.x + ds*0.5; t < t0.y; t += ds) {
+        vec3 lum = raymarchFog(ro + rd*t, sun, c); // 0..1
+        float w = ds*density(ro + rd*t - c);
+        sum.rgb += w*exp(-sum.w)*lum;
+        sum.w += w;
+      }
+      
+      fragColor.rgb = 1.5*vRgba.rgb*sum.rgb;
+      fragColor.a = 1. - exp(-sum.w);
+    }
   </script>
 
   <script id="vert-glsl" type="x-shader/x-vertex">
@@ -49,7 +110,8 @@
 
     void main() {
       vec4 o = texture(tDiffuse, vUv);
-      gl_FragColor = tanh(o);
+      o *= 0.05;
+      gl_FragColor = tanh(o*o);
     }
   </script>
 

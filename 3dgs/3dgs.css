@@ -55,7 +55,7 @@ body.codemirror #show_code {
 }
 
 #codemirror .cm-editor {
-  background: #0008;
+  background: #000c;
 }
 
 body:not(.codemirror) #codemirror {

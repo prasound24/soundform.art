@@ -1,12 +1,9 @@
-const mat4 BSPLINE = 1./6. * mat4(
-    -1, 3,-3, 1, 
-     3,-6, 0, 4, 
-    -3, 3, 3, 1, 
-     1, 0, 0, 0);
+const float PI2 = radians(360.);
+const mat4 BSPLINE = 1./6. * mat4(-1, 3,-3, 1, 3,-6, 3, 0, -3, 0, 3, 0, 1, 4, 1, 0);
 
 vec4 bspline(float s) {
-  return transpose(BSPLINE)*pow(vec4(s), vec4(3,2,1,0));
-} 
+  return BSPLINE*vec4(s*s*s,s*s,s,1);
+}
 
 void mainSplatModifier(inout Gsplat gs) {
   ivec2 size = ivec2(iMeshSize.xy);
@@ -14,13 +11,8 @@ void mainSplatModifier(inout Gsplat gs) {
   vec2 p = vec2(i % w, i / w)/vec2(w,h);
   vec4 pos = texture(iMesh, p);
 
-  //if (!iShowDots) {
-  //  p += fract(iTime)/vec2(w,h)*vec2(1,0);
-  //  pos = texture(iMesh, p);
-  //}
-
-  if (!iShowDots) {
-    vec2 dp = vec2(0,1)/vec2(w,h);
+  if (length(iDxDy) > 0.) {
+    vec2 dp = iDxDy/vec2(w,h);
     mat4x2 ps = mat4x2(p-dp, p, p+dp, p+dp+dp);
     vec4 a = texture(iMesh, ps[0]);
     vec4 b = texture(iMesh, ps[1]);
@@ -31,13 +23,10 @@ void mainSplatModifier(inout Gsplat gs) {
     p = ps*bs;
   }
   
-  float t = p.y;
-  float s = t / (1.1 + pos.w);
+  float s = p.y / (1.1 + pos.w);
   gs.center = s * pos.xzy;
   gs.scales = (s + 0.05) / vec3(w);
-  gs.rgba.rgb = 0.5 + 
-    0.5 * cos(PI * 2. * (t + pos.z + pos.w + iColor.rgb));
-  //gs.rgba.rgb = abs(pos.w)*iColor.rgb;
-  //gs.rgba.rgb = iColor.rgb;
-  gs.rgba.a = iColor.a*exp(-t*0.5);
+  gs.rgba = vec4(0);
+  gs.rgba += cos(PI2*(pos.z + pos.w + iColor))*0.5 + 0.5;
+  gs.rgba.a = iColor.a*exp(-p.y*0.5);
 }
