@@ -1,6 +1,6 @@
 const PHI = (Math.sqrt(5) - 1) / 2;
 
-export function createShader(CW, CH) {
+export function createMesh(CW, CH) {
     let n = CW * CH;
     let xyzw = new Float32Array(n * 4);
     let rgba = new Float32Array(n * 4);

@@ -1,5 +1,4 @@
 import { Float32Tensor } from '../../lib/utils.js';
-import * as webfft from '../../lib/webfft.js';
 
 const fract = (x) => x - Math.floor(x);
 
@@ -10,27 +9,32 @@ function hash11(p) {
   return fract(p);
 }
 
-function initStr(xyzw, w, h, x, y, amps, sid = 0) {
-  let phi = Math.PI * 2 * x / w;
-  let px = Math.cos(phi);
-  let py = Math.sin(phi);
+function tri(t) {
+  t /= Math.PI * 2;
+  return 2 * Math.abs(t - Math.floor(t + 0.5));
+}
+
+function initStr(xyzw, w, h, x, y, amps) {
+  let a = Math.PI * 2 * x / w;
+  let px = Math.cos(a);
+  let py = Math.sin(a);
   let pz = 0;
   let pw = 0;
 
   for (let s = 0; s < amps.length; s++) {
-    pz += amps[s] * Math.cos(phi * s);
-    pw += amps[s] * Math.cos(phi * s) * -0.6;
+    pz += amps[s] * Math.cos(a * s);
+    pw += amps[s] * Math.sin(a * s);
   }
 
-  px *= Math.cos(pz);
-  py *= Math.cos(pz);
-  pz = Math.sin(pz);
+  //px *= Math.cos(pz);
+  //py *= Math.cos(pz);
+  //pz = Math.sin(pz);
 
   let i = y * w + x;
-  xyzw[i * 4 + 0] = px * Math.cos(pw);
-  xyzw[i * 4 + 1] = py * Math.cos(pw);
-  xyzw[i * 4 + 2] = pz * Math.cos(pw);
-  xyzw[i * 4 + 3] = Math.sin(pw);
+  xyzw[i * 4 + 0] = px; // * Math.cos(pw);
+  xyzw[i * 4 + 1] = py; // * Math.cos(pw);
+  xyzw[i * 4 + 2] = pz; // * Math.cos(pw);
+  xyzw[i * 4 + 3] = pw; // Math.sin(pw);
 }
 
 const vec4 = () => new Float32Array(4);
@@ -47,58 +51,74 @@ function tex(res, rgba, w, h, x, y) {
   res[3] = rgba[i * 4 + 3];
 }
 
-function moveStr(tmp, xyzw, w, h, x, y, [dx, dt]) {
+function moveStr(tmp, xyzw, w, h, x, y, g, [dx, dt]) {
   if (tmp.length == 0)
-    for (let i = 0; i < 6; i++)
+    for (let i = 0; i < 7; i++)
       tmp[i] = vec4();
 
-  let [c, l, r, ll, rr, d] = tmp;
+  let [c, l, r, ll, rr, prev, ds] = tmp;
 
   tex(c, xyzw, w, h, x, y);
   tex(l, xyzw, w, h, x - 1, y);
   tex(r, xyzw, w, h, x + 1, y);
   tex(ll, xyzw, w, h, x - 2, y);
   tex(rr, xyzw, w, h, x + 2, y);
-  tex(d, xyzw, w, h, x, y - 1);
+  tex(prev, xyzw, w, h, x, y - 1);
 
-  mul(l, 1.0 / dot(l, c));
-  mul(r, 1.0 / dot(r, c));
-  mul(d, 1.0 / dot(d, c));
-  mul(ll, 1.0 / dot(ll, c));
-  mul(rr, 1.0 / dot(rr, c));
+  //mul(l, 1.0 / dot(l, c));
+  //mul(r, 1.0 / dot(r, c));
+  //mul(d, 1.0 / dot(d, c));
+  //mul(ll, 1.0 / dot(ll, c));
+  //mul(rr, 1.0 / dot(rr, c));
 
-  let dtdx2 = (dt / dx) ** 2;
+  let dt2 = dt * dt, dx2 = dx * dx, dtdx2 = dt2 / dx2;
 
   for (let i = 0; i < 4; i++) {
-    let ds = c[i] - d[i];
-    ds += dtdx2 * (l[i] + r[i] - c[i] * 2);
-    //ds -= (5e-8 * dt2 / dx2 / dx2) * (ll[i] + rr[i] - (l[i] + r[i]) * 4 + c[i] * 6);
-    c[i] += ds;
+    ds[i] = c[i] - prev[i];
+    ds[i] += dtdx2 * (l[i] + r[i] - c[i] * 2);
+    //ds -= (0.1 * dtdx2 / dx2) * (ll[i] + rr[i] - (l[i] + r[i]) * 4 + c[i] * 6);
   }
 
-  mul(c, 1.0 / len(c));
+  //let spin = 30;
+  //for (let i = 0; i < 2; i++)
+  //  ds[i] += dt2 * spin * c[i];
+
+  //if (x % (w / 5) == 0) {
+  //  let gc = dot(g, c), g2 = dot(g, g);
+  //  if (g2 > 0)
+  //    for (let i = 0; i < 4; i++)
+  //      ds[i] += dt2 * g[i] * (1 - gc / g2);
+  //}
+
+  let damping = 0.001;
+  for (let i = 0; i < 4; i++)
+    ds[i] += dt * damping * prev[i];
+
+  for (let i = 0; i < 4; i++)
+    c[i] += ds[i];
+
+  mul(c, 1 / (1 + dt * damping));
+  mul(c, 1 / len(c));
   return c;
 }
 
-export function createShader(w, h, { sid, rgb, audio, timespan } = {}) {
+export function createMesh(w, h, { sid, rgb, amps, timespan } = {}) {
   let str4 = new Float32Array(w * h * 4);
-  let amps = new Float32Array(w/2);
 
-  if (audio) {
-    amps = getAverageSpectrum(audio);
-  } else {
+  if (!amps || !amps.length || amps.length == 1 && amps[0] == 0) {
+    amps = new Float32Array(w / 2);
     let add = (num, pow, vol) => {
       for (let s = 0; s < amps.length; s += num) {
-        let a = hash11(sid + s/num) - 0.5;
-        if (s > 0) a *= (s / num) ** pow;
+        let a = hash11(sid + s / num) - 0.5;
+        if (s > 0) a *= Math.exp(pow * (s / num));
         amps[s] += a * vol;
       }
     };
-    add(24,  -2.5, +1.5);
-    add(48, -3.5, -2.5);
+    add(2, -0.8, 10);
+    add(2, -1.8, -8);
   }
 
-  console.debug('String amps:', [...amps].map(a => a.toFixed(2)).join(',')
+  console.debug('Amps:', [...amps].map(a => a.toFixed(2)).join(',')
     .replace(/(,[-]?0.00)+$/, ''));
 
   for (let y = 0; y < 2; y++)
@@ -112,10 +132,10 @@ export function createShader(w, h, { sid, rgb, audio, timespan } = {}) {
   if (dt / dx > 0.5) console.warn('dx/dt > 0.5 is unstable');
 
   for (let y = 2; y < h; y++) {
+    let g = [0, 0, 0, 0];
     for (let x = 0; x < w; x++) {
-      let c = moveStr(tmp, str4, w, h, x, y - 1, [dx, dt]);
-      let i = y * w + x;
-      str4.set(c, i * 4);
+      let c = moveStr(tmp, str4, w, h, x, y - 1, g, [dx, dt]);
+      str4.set(c, (y * w + x) * 4);
     }
   }
 
@@ -123,38 +143,4 @@ export function createShader(w, h, { sid, rgb, audio, timespan } = {}) {
     iColor: rgb,
     iMesh: new Float32Tensor([h, w, 4], str4),
   };
-}
-
-
-function getAverageSpectrum(audio) {
-  let ch = audio.channels[0];
-  let n = ch.length, m = 1024;
-  let amps = new Float32Array(m);
-  let frame = new Float32Array(m * 2);
-  let len2 = (a, b) => a * a + b * b;
-
-  if (n < m) throw new Error(
-    'Audio sample is too short: ' + n + ' < ' + m);
-
-  for (let i = 0; i + m <= n; i += m) {
-    frame.fill(0);
-
-    for (let j = 0; j < m; j++)
-      frame[j * 2] = ch[i + j];
-
-    webfft.fft_1d(frame);
-
-    for (let j = 0; j < m; j++)
-      amps[j] += len2(frame[j * 2], frame[j * 2 + 1]);
-  }
-
-  let maxamp = 0;
-
-  for (let j = 0; j < m; j++)
-    maxamp = Math.max(maxamp, amps[j]);
-
-  for (let j = 0; j < m; j++)
-    amps[j] = amps[j] / maxamp / 3;
-
-  return amps.slice(0, m / 2);
 }

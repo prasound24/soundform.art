@@ -14,7 +14,8 @@ const signature = uargs.get('l') || '@soundform.art';
 const dxdy = (uargs.get('dxdy') || '0,1').split(',').map(x => +x || 0);
 const quality = +uargs.get('q') || 1.0;
 const aperture = +uargs.get('aperture') || 0;
-const numFrames = +uargs.get('numf') || 10000;
+const numFrames = +uargs.get('numf') || (Math.hypot(...dxdy) > 0 ? 10000 : 0);
+const stringAmps = (uargs.get('amps') || '0').split(',').map(x => +x || 0);
 
 import * as THREE from "three";
 import Stats from 'three/addons/libs/stats.module.js';
@@ -42,9 +43,8 @@ const img = {
 };
 
 console.log('Color:', colorRGBA.map(x => x.toFixed(2)).join(','));
-console.log('Blending:', useAdditiveBlending ? 'additive' : 'normal');
 
-const stats = { numSplats: 0 };
+const stats = { numSplats: 0, prevFrames: 0 };
 const canvas = $('canvas#webgl');
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, img.width / img.height, 0.001, 1000);
@@ -52,11 +52,11 @@ camera.position.set(camDist, camDist, camDist);
 const renderer = new THREE.WebGLRenderer(
   { canvas, alpha: true, antialias: false, preserveDrawingBuffer: true });
 
-const spark = new SparkRenderer({ renderer, material: initMaterial });
+const spark = new SparkRenderer({ renderer, view: { sort32: true }, material: initMaterial });
 scene.add(spark);
 
 if (quality == 1) {
-  //spark.maxStdDev = 4;
+  spark.maxStdDev = 4;
   spark.apertureAngle = aperture ? Math.PI / aperture : 0;
   spark.focalDistance = 0;
   spark.focalAdjustment = 2;
@@ -79,11 +79,7 @@ statsUI.domElement.id = 'fps';
 statsUI.domElement.style = isEmbedded ? 'none' : '';
 document.body.appendChild(statsUI.domElement);
 
-$('#pause').onclick = () => {
-  controls.enabled = !controls.enabled;
-  document.body.classList.toggle('paused', !controls.enabled);
-};
-
+$('#pause').onclick = () => setControlsEnabled(!controls.enabled);
 $('#audio').onclick = () => initAudioMesh();
 
 const worker = new Worker('./worker.js', { type: 'module' });
@@ -132,7 +128,14 @@ function stopRecording() {
 window.startRecording = startRecording;
 window.stopRecording = stopRecording;
 
+function setControlsEnabled(v) {
+  controls.enabled = v;
+  if (v) stats.prevFrames = animateFrame.value;
+  document.body.classList.toggle('paused', !controls.enabled);
+}
+
 function initMaterial(mat) {
+  console.log('Blending mode:', useAdditiveBlending ? 'additive' : 'normal');
   if (!useAdditiveBlending)
     return mat;
   mat.vertexShader = mat.vertexShader
@@ -312,6 +315,7 @@ composer.addPass(new TexturePass(accumulatorPass.uniforms.tAccumulator.value));
 controls.addEventListener('change', clearAccumulator);
 
 function clearAccumulator() {
+  stats.prevFrames = animateFrame.value;
   renderer.setRenderTarget(savePass.renderTarget);
   renderer.clear();
 }
@@ -331,6 +335,11 @@ function resizeCanvas() {
 renderer.setAnimationLoop((time) => {
   if (!controls.enabled)
     return;
+
+  if (animateFrame.value - stats.prevFrames > 500) {
+    setControlsEnabled(false);
+    return;
+  }
 
   if (aperture > 0) {
     let p = camera.position;
@@ -375,14 +384,14 @@ async function initCodeMirror() {
   });
 
   editor.view.dom.addEventListener('focusin', (e) => {
-    //controls.enabled = false;
+    setControlsEnabled(false);
   });
 
   editor.view.dom.addEventListener('focusout', (e) => {
     //console.log('Updating SplatMesh GLSL...');
     scene.children.map(m => m.numSplats > 0 && m.updateGenerator());
     clearAccumulator();
-    //controls.enabled = true;
+    setControlsEnabled(true);
   });
 
   $('#show_code').onclick = () => {
@@ -462,7 +471,7 @@ async function downloadMesh() {
   console.log('.ply file size:', (blob.size / 1e6).toFixed(1), 'MB');
   check(blob.size > 0);
 
-  let file = new File([blob], 'soundform.ply');
+  let file = new File([blob], 'soundform' + CW + 'x' + CH + '.ply');
   let a = document.createElement('a');
   let url = URL.createObjectURL(file);
   a.href = url;
@@ -479,7 +488,7 @@ async function generateSplats(name = 'sphere', audio = null) {
       resolve(e.data);
     worker.postMessage({
       type: 'mesh', name, cw, ch,
-      args: { sid, audio, rgb: colorRGBA, depth, timespan }
+      args: { sid, audio, rgb: colorRGBA, depth, timespan, amps: stringAmps }
     });
   });
 
@@ -495,7 +504,7 @@ async function generateSplats(name = 'sphere', audio = null) {
     gsm0.uniforms[name] = new utils.Float32Tensor([h, w, ch], u.data);
   }
 
-  console.debug('generateSplats:', 'type=' + name, Date.now() - ts, 'ms',
+  console.debug('Mesh ready:', 'type=' + name, Date.now() - ts, 'ms',
     (cw * ch / 4e6).toFixed(1), 'M splats, sid=' + (sid + '').replace('0.', ''));
 
   let chunks = splitMeshIntoChunks(gsm0);
@@ -561,7 +570,8 @@ async function initAudioMesh() {
     audio.channels.map(ch => ch.length).join(','), 'samples');
 
   clearScene();
-  await generateSplats('string', audio);
+  await generateSplats('audio', audio);
+  setControlsEnabled(true);
 }
 
 async function initSceneBackground() {

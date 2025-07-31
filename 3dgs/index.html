@@ -68,10 +68,12 @@
       if (length(vSplatUv) > maxStdDev) discard;
       fragColor = vRgba;
       //fragColor.rgb *= fragColor.a;
-      //fragColor *= exp(-0.5*dot(vSplatUv,vSplatUv));
-      //fragColor *= smoothstep(1., 0., length(vSplatUv/maxStdDev));
-      fragColor *= cos(length(vSplatUv/maxStdDev)*PI)*0.5 + 0.5;
-      //fragColor.rgb = vec3(abs(vNdcOffset)/vNdcScales, 0);
+      
+      float d = exp(-0.5*dot(vSplatUv,vSplatUv));
+      //float d = smoothstep(1., 0., length(vSplatUv/maxStdDev));
+      //float d = cos(length(vSplatUv/maxStdDev)*PI)*0.5 + 0.5;
+      fragColor *= d;
+      //fragColor.rgb *= exp(vNdcOffset.y/vNdcScales.y);
       return;
 
       vec3 c = (vNdc - vec3(vNdcOffset,0))/vec3(vNdcScales,1); // sphere center
@@ -110,8 +112,10 @@
 
     void main() {
       vec4 o = texture(tDiffuse, vUv);
-      o *= 0.05;
-      gl_FragColor = tanh(o*o);
+      o *= 0.06;
+      //o = tanh(o*o);
+      o = pow(o, vec4(1)/2.2);
+      gl_FragColor = o;
     }
   </script>
 
@@ -190,7 +194,9 @@
         if (p2.x <= ls.x && p2.y <= ls.y && p2.x >= 0. && p2.y >= 0.) {
             vec4 col = texelFetch(logo, ivec2(p2), 0);
             float gray = (col.r + col.g + col.b) / 3.0;
-            o.rgb = mix(o.rgb, vec3(gray), col.a * alpha);
+            //o.rgb = mix(o.rgb, vec3(gray), col.a * alpha);
+            vec3 neg = mix(o.rgb, 1.0 - o.rgb, gray);
+            o.rgb = mix(o.rgb, neg, col.a * alpha);
         }
     }
 

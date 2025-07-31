@@ -5,11 +5,7 @@
 }
 
 #prints a {
-  padding: 2em;
-}
-
-#prints a:first-child {
-  padding-top: 0;
+  width: 100%;
 }
 
 #prints img {

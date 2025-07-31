@@ -10,7 +10,8 @@ self.onmessage = async (e) => {
         await import('./mesh/' + name + '.js');
     shaders[name] = shaders[name] ||
         await (await fetch('./mesh/' + name + '.glsl')).text();
-    let uniforms = meshes[name].createShader(cw, ch, args);
+    console.log('Creating mesh: type=' + name);
+    let uniforms = meshes[name].createMesh(cw, ch, args);
     let shader = shaders[name];
     postMessage({ txid, shader, uniforms });
 };

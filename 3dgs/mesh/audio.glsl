@@ -1,22 +1,46 @@
+const float PI2 = radians(360.);
+
+float murmur11(float x) {
+    const uint M = 0x5bd1e995u;
+    uint h = 1190494759u;
+    uint src = floatBitsToUint(x);
+    src *= M; src ^= src>>24u; src *= M;
+    h *= M; h ^= src;
+    h ^= h>>13u; h *= M; h ^= h>>15u;
+    return uintBitsToFloat(h & 0x007fffffu | 0x3f800000u) - 1.0;
+}
+
+vec4 murmur41(float x) {
+  vec4 p = vec4(x)*vec4(1.013, 1.015, 0.0943, 0.0942);
+  return vec4(murmur11(p.x), murmur11(p.y), murmur11(p.z), murmur11(p.w));
+}
+
+vec4 bspline(float s) {
+  const mat4 BSPLINE = 1./6.*mat4(-1, 3,-3, 1, 3,-6, 3, 0, -3, 0, 3, 0, 1, 4, 1, 0);
+  return BSPLINE*vec4(s*s*s,s*s,s,1);
+}
+
 void mainSplatModifier(inout Gsplat gs) {
-  int w = int(iAmpSize.x), h = int(iAmpSize.y);
-  int i = gs.index;
-  vec2 p = vec2(i % w, i / w) / vec2(w, h);
-  p += fract(iTime) * vec2(0, 1) / vec2(w, h);
+  ivec2 size = ivec2(iMeshSize.xy);
+  int w = size.x, h = size.y, i = gs.index;
+  vec2 p = (0.5 + vec2(i % w, i / w))/vec2(w,h);
+  vec4 pos = texture(iMesh, p);
+  vec4 amp = texture(iAmps, p);
 
-  int ww = int(iDrumShape.x), hh = int(iDrumShape.y);
-  vec2 pp = (vec2(i % w % ww, i % w / ww) + vec2(0.5)) / vec2(ww, hh);
-
-  float s = sqrt(texture(iSum, p).x / iSumMax);
-  float a = pp.x * PI;
-  float b = (pp.y - 0.5) * PI;
-  gs.center = s * vec3(cos(a) * cos(b), sin(a) * cos(b), sin(b));
-  gs.scales = s * PI / vec3(ww);
-  gs.center.z -= s*s*0.5;
-  gs.center.z /= 1.0 + s*s;
-
-  float amp = texture(iAmp, p).x;
-  gs.rgba.rgb = mix(vec3(2,1,4), vec3(4,2,1), s);
-  gs.rgba *= amp*0.7;
-  gs.scales *= amp * (1.0 - s);
+  if (length(iDxDy) > 0.) {
+    vec2 dp = iDxDy/vec2(w,h);
+    mat4x2 ps = mat4x2(p-dp, p, p+dp, p+dp+dp);
+    vec4 a = texture(iMesh, ps[0]);
+    vec4 b = texture(iMesh, ps[1]);
+    vec4 c = texture(iMesh, ps[2]);
+    vec4 d = texture(iMesh, ps[3]);
+    vec4 bs = bspline(murmur11(fract(iTime)));
+    pos = mat4(a,b,c,d)*bs;
+    p = ps*bs;
+  }
+  
+  float t = p.y, s = t / (1.1 + pos.w);
+  gs.center = s * pos.xzy;
+  gs.scales = s / vec3(w) * dot(amp,amp) * 10.;
+  gs.rgba = vec4(1,1,1,iColor.a);
 }
