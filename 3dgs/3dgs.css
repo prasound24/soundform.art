@@ -61,3 +61,11 @@ body.codemirror #show_code {
 body:not(.codemirror) #codemirror {
   display: none;
 }
+
+body.recording #start_recording {
+  display: none;
+}
+
+body:not(.recording) #stop_recording {
+  display: none;
+}

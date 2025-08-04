@@ -1,4 +1,4 @@
-const meshes = {}, shaders = {};
+const meshes = {};
 
 self.onmessage = async (e) => {
     let { type, name, txid, cw, ch, args } = e.data;
@@ -8,10 +8,7 @@ self.onmessage = async (e) => {
         throw new Error('Invalid mesh: ' + name);
     meshes[name] = meshes[name] ||
         await import('./mesh/' + name + '.js');
-    shaders[name] = shaders[name] ||
-        await (await fetch('./mesh/' + name + '.glsl')).text();
     console.log('Creating mesh: type=' + name);
     let uniforms = meshes[name].createMesh(cw, ch, args);
-    let shader = shaders[name];
-    postMessage({ txid, shader, uniforms });
+    postMessage({ txid, uniforms });
 };

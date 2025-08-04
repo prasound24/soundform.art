@@ -11,11 +11,13 @@ const imgSize = (uargs.get('i') || '0x0').split('x').map(x => +x);
 const timespan = (uargs.get('t') || '1x1').split('x').map(x => +x);
 const rotation = +uargs.get('rot') || 0;
 const signature = uargs.get('l') || '@soundform.art';
-const dxdy = (uargs.get('dxdy') || '0,1').split(',').map(x => +x || 0);
+const useMotion = +uargs.get('motion') || 0;
+const dxdy = (uargs.get('dxdy') || (useMotion ? '0,0' : '0,1')).split(',').map(x => +x || 0);
 const quality = +uargs.get('q') || 1.0;
 const aperture = +uargs.get('aperture') || 0;
 const numFrames = +uargs.get('numf') || (Math.hypot(...dxdy) > 0 ? 10000 : 0);
 const stringAmps = (uargs.get('amps') || '0').split(',').map(x => +x || 0);
+const maxFrames = +uargs.get('maxframes') || (useMotion ? Infinity : 500);
 
 import * as THREE from "three";
 import Stats from 'three/addons/libs/stats.module.js';
@@ -62,9 +64,15 @@ if (quality == 1) {
   spark.focalAdjustment = 2;
 }
 
+const quad = initQuad();
+const tempRenderTargets = {};
+
 window.camera = camera;
 window.scene = scene;
 window.spark = spark;
+window.downloadMesh = downloadMesh;
+
+const texFormats = [0, THREE.RedFormat, THREE.RGFormat, THREE.RGBFormat, THREE.RGBAFormat];
 
 const animateTime = dyno.dynoFloat(0);
 const animateFrame = dyno.dynoInt(0);
@@ -87,6 +95,7 @@ let gsm0 = null;
 
 const editor = {
   view: null,
+  isEditing: false,
 
   get text() {
     return dyno.unindent(editor.view ?
@@ -100,33 +109,34 @@ const editor = {
   }
 };
 
-window.editor = editor;
-
 await generateSplats('string');
 console.log('Mesh size:', CW + 'x' + CH);
 console.log('Num meshes:', scene.children.filter(m => m.numSplats > 0).length);
 
 let recorder = null;
+$('#start_recording').onclick = () => startRecording();
+$('#stop_recording').onclick = () => stopRecording();
 
 function startRecording() {
-  let stream = canvas.captureStream(30);
-  recorder = new MediaRecorder(stream);
+  let mbps = 30 * (canvas.width * canvas.height) / (1920 * 1080);
+  console.log('Recording bitrate:', mbps.toFixed(0), 'mbps');
+  let stream = canvas.captureStream(0);
+  recorder = new MediaRecorder(stream, { videoBitsPerSecond: mbps * 1e6 });
 
   recorder.ondataavailable = (e) => {
     let blob = new Blob([e.data], { type: 'video/webm' });
-    let url = URL.createObjectURL(blob);
-    console.log('Recorded video:', url);
+    downloadBlob(blob, 'recording' + canvas.width + 'x' + canvas.height + '.webm');
   };
 
   recorder.start();
+  document.body.classList.add('recording');
 }
 
 function stopRecording() {
   recorder.stop();
+  recorder = null;
+  document.body.classList.remove('recording');
 }
-
-window.startRecording = startRecording;
-window.stopRecording = stopRecording;
 
 function setControlsEnabled(v) {
   controls.enabled = v;
@@ -153,18 +163,17 @@ function initMaterial(mat) {
   return mat;
 }
 
-function updateTextureMesh() {
+function initTextureMesh() {
   for (let name in gsm0.uniforms) {
     let uniform = gsm0.uniforms[name];
     if (!uniform.shape || !uniform.data)
-      continue;
+      continue; // not a texture
 
     let [h, w, ch = 1] = uniform.shape;
-    let fmt = [0, THREE.RedFormat, THREE.RGFormat, THREE.RGBFormat, THREE.RGBAFormat][ch];
-    utils.dcheck(ch > 0 && fmt > 0);
+    let format = texFormats[ch];
+    utils.dcheck(ch > 0 && format > 0);
 
-    let tex = new THREE.DataTexture(
-      uniform.data, w, h, fmt, THREE.FloatType);
+    let tex = new THREE.DataTexture(uniform.data, w, h, format, THREE.FloatType);
     tex.needsUpdate = true;
     tex.wrapS = THREE.RepeatWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -172,23 +181,81 @@ function updateTextureMesh() {
     tex.magFilter = THREE.LinearFilter;
     gsm0.textures[name] = dyno.dynoSampler2D(tex);
   }
+
+  updateShaderMat(gsm0);
 }
 
-function splitMeshIntoChunks(gsm, chunk = CW * 512) {
-  return [gsm];
+function updateShaderMat() {
+  THREE.ShaderChunk['spark_utils'] =
+    'struct Gsplat { int index; uint flags; vec3 center, scales; vec4 rgba, quaternion; };';
+  THREE.ShaderChunk['mesh_uniforms'] = '';
+
+  gsm0.uniformsQuad = initUniforms(gsm0);
+  gsm0.uniformsQuad.iResolution = dyno.dynoVec2(0, 0);
+  for (let [name, d] of Object.entries(gsm0.uniformsQuad))
+    THREE.ShaderChunk['mesh_uniforms'] += 'uniform ' + d.type + ' ' + name + ';\n';
+
+  gsm0.shaderMat = new THREE.ShaderMaterial({
+    vertexShader: `
+        varying vec2 vUv;
+
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1);
+        }`,
+    fragmentShader: `
+        varying vec2 vUv;
+
+        #include <spark_utils>
+        #include <mesh_uniforms>
+        
+        ${editor.text}
+
+        void main() {
+          mainTextureUpdate(gl_FragColor, vUv*iResolution);
+        }`,
+  });
 }
 
-function appendMesh(gsm) {
-  stats.numSplats += gsm.numSplats;
+function initQuad() {
+  let quad = {};
+  quad.plane = new THREE.PlaneGeometry(2, 2);
+  quad.mesh = new THREE.Mesh(quad.plane, null);
+  quad.scene = new THREE.Scene();
+  quad.scene.add(quad.mesh);
+  quad.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 3);
+  return quad;
+}
 
-  // Spark rounds down to 2048
-  const packedArray = new Uint32Array(4 * 2048 * Math.ceil(gsm.numSplats / 2048));
-  const packedSplats = new PackedSplats({ packedArray });
-  const mesh = new SplatMesh({ packedSplats });
-  //mesh.quaternion.set(0, 0, 0, 0);
-  //mesh.position.set(0, 0, 0);
-  scene.add(mesh);
+function getTempRenderTarget(tex) {
+  let { width, height } = tex.source.data;
+  let id = width + 'x' + height;
+  let rt = tempRenderTargets[id];
+  rt = rt || new THREE.WebGLRenderTarget(width, height, { type: THREE.FloatType, depthBuffer: false });
+  return tempRenderTargets[id] = rt;
+}
 
+function updateTextureMesh() {
+  quad.mesh.material = gsm0.shaderMat;
+
+  for (let tex of Object.values(gsm0.textures)) {
+    let tempRT = getTempRenderTarget(tex.value);
+    let uniforms = gsm0.uniformsQuad;
+
+    uniforms.iResolution.value = [tempRT.width, tempRT.height];
+
+    for (let name in uniforms)
+      gsm0.shaderMat.uniforms[name] = uniforms[name];
+
+    renderer.setRenderTarget(tempRT);
+    renderer.render(quad.scene, quad.camera);
+    renderer.copyTextureToTexture(tempRT.texture, tex.value);
+  }
+
+  renderer.setRenderTarget(null);
+}
+
+function initUniforms(gsm) {
   const uniforms = {};
 
   uniforms.iTime = animateTime;
@@ -212,6 +279,21 @@ function appendMesh(gsm) {
     }
   }
 
+  return uniforms;
+}
+
+function appendMesh(gsm) {
+  stats.numSplats += gsm.numSplats;
+
+  // Spark rounds down to 2048
+  const packedArray = new Uint32Array(4 * 2048 * Math.ceil(gsm.numSplats / 2048));
+  const packedSplats = new PackedSplats({ packedArray });
+  const mesh = new SplatMesh({ packedSplats });
+  //mesh.quaternion.set(0, 0, 0, 0);
+  //mesh.position.set(0, 0, 0);
+  scene.add(mesh);
+
+  const uniforms = initUniforms(gsm);
   const inTypes = {};
 
   for (let name in uniforms)
@@ -257,11 +339,9 @@ function clearScene() {
   }
   stats.numSplats = 0;
   gsm0 = {};
-  updateTextureMesh();
+  initTextureMesh();
   clearAccumulator();
 }
-
-$('#download').onclick = () => downloadMesh();
 
 console.log('Scene size:', (stats.numSplats / 1e6).toFixed(1), 'M splats');
 
@@ -290,7 +370,7 @@ const vignettePass = new ShaderPass({
   fragmentShader: $('#vignette-glsl').textContent,
 });
 const savePass = new SavePass(
-  new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType }));
+  new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType, depthBuffer: false }));
 const accumulatorPass = new ShaderPass({
   uniforms: {
     iNumFrames: { value: numFrames },
@@ -333,10 +413,10 @@ function resizeCanvas() {
 }
 
 renderer.setAnimationLoop((time) => {
-  if (!controls.enabled)
+  if (!controls.enabled || editor.isEditing)
     return;
 
-  if (animateFrame.value - stats.prevFrames > 500) {
+  if (animateFrame.value - stats.prevFrames > maxFrames) {
     setControlsEnabled(false);
     return;
   }
@@ -346,18 +426,24 @@ renderer.setAnimationLoop((time) => {
     spark.focalDistance = Math.hypot(p.x, p.y, p.z);
   }
 
+  if (useMotion)
+    updateTextureMesh();
+
+  scene.rotation.y = time / 1000 * rotation;
   animateTime.value = time / 1000;
   animateFrame.value += 1;
-  scene.children.map(m => m.numSplats > 0 && m.updateVersion());
+
+  for (let m of scene.children)
+    if (m.numSplats > 0)
+      m.updateVersion();
+
   resizeCanvas();
   controls.update();
   statsUI.update();
-
-  scene.rotation.y = time / 1000 * rotation;
-
-  //renderer.render(scene, camera);
-  //sunraysPass.uniforms.iTime.value = time / 1000;
   composer.render();
+
+  if (recorder && animateFrame.value % 4 == 0) 
+    recorder.stream.requestFrame?.();
 });
 
 window.addEventListener('resize', () => {
@@ -384,58 +470,20 @@ async function initCodeMirror() {
   });
 
   editor.view.dom.addEventListener('focusin', (e) => {
-    setControlsEnabled(false);
+    editor.isEditing = true;
   });
 
   editor.view.dom.addEventListener('focusout', (e) => {
     //console.log('Updating SplatMesh GLSL...');
     scene.children.map(m => m.numSplats > 0 && m.updateGenerator());
+    updateShaderMat(gsm0);
     clearAccumulator();
-    setControlsEnabled(true);
+    editor.isEditing = false;
   });
 
   $('#show_code').onclick = () => {
     document.body.classList.toggle('codemirror');
   };
-}
-
-function interpolateX(res, src, [xmin, xmax], [ymin, ymax], a = 0) {
-  let w = xmax - xmin, h = ymax - ymin;
-  check(res.length == w * h * 4);
-  check(src.length >= xmax * ymax * 4);
-  check(a >= 0 && a <= 1);
-
-  for (let y = ymin; y < ymax; y++) {
-    for (let x = xmin; x < xmax; x++) {
-      let r4 = 4 * (w * (y - ymin) + (x - xmin));
-      let i4 = 4 * (w * y + x);
-      let j4 = 4 * (w * y + (x + 1) % w);
-
-      for (let k = 0; k < 4; k++)
-        res[r4 + k] = mix(src[i4 + k], src[j4 + k], a);
-    }
-  }
-}
-
-function interpolateY(res, src, w, h, a = 0) {
-  check(res.length == w * h * 4);
-  check(src.length == w * h * 4);
-  check(a >= 0 && a <= 1);
-
-  for (let y = 0; y < h; y++) {
-    let t = (y + a) / h * (h - 1);
-    let s = fract(t);
-    check(t >= 0 && t <= h - 1);
-
-    for (let x = 0; x < w; x++) {
-      let i4 = 4 * (x + w * Math.floor(t));
-      let j4 = 4 * (x + w * Math.ceil(t));
-      let r4 = 4 * (x + w * y);
-
-      for (let k = 0; k < 4; k++)
-        res[r4 + k] = mix(src[i4 + k], src[j4 + k], s);
-    }
-  }
 }
 
 async function downloadMesh() {
@@ -471,10 +519,15 @@ async function downloadMesh() {
   console.log('.ply file size:', (blob.size / 1e6).toFixed(1), 'MB');
   check(blob.size > 0);
 
-  let file = new File([blob], 'soundform' + CW + 'x' + CH + '.ply');
+  downloadBlob(blob, 'soundform' + CW + 'x' + CH + '.ply');
+}
+
+function downloadBlob(blob, filename = blob.name) {
+  console.log('Downloading', filename, (blob.size / 1e6).toFixed(1), 'MB');
+  let url = URL.createObjectURL(blob);
   let a = document.createElement('a');
-  let url = URL.createObjectURL(file);
   a.href = url;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -507,11 +560,12 @@ async function generateSplats(name = 'sphere', audio = null) {
   console.debug('Mesh ready:', 'type=' + name, Date.now() - ts, 'ms',
     (cw * ch / 4e6).toFixed(1), 'M splats, sid=' + (sid + '').replace('0.', ''));
 
-  let chunks = splitMeshIntoChunks(gsm0);
-  console.debug('Mesh split into', chunks.length, 'chunks');
-  updateTextureMesh();
-  chunks.map(gsm => appendMesh(gsm));
+  let res = await fetch('./mesh/' + name + '.glsl');
+  gsm0.shader = await res.text();
   editor.text = gsm0.shader;
+
+  initTextureMesh();
+  appendMesh(gsm0);
 }
 
 // https://sparkjs.dev/docs/packed-splats

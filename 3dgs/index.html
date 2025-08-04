@@ -29,7 +29,8 @@
     <button id="pause" class="debug"><img src="/img/ico/stop.png"></button>
     <button id="show_code" class="debug"><img src="/img/ico/menu.png"></button>
     <button id="audio" title="Upload audio" class="debug"><img src="/img/ico/mic.png"></button>
-    <button id="download" title="Download .PLY" class="debug"><img src="/img/ico/file.png"></button>
+    <button id="start_recording" class="debug"><img src="/img/ico/record.png"></button>
+    <button id="stop_recording" class="debug"><img src="/img/ico/stop.png"></button>
   </div>
 
   <script id="spark-frag-glsl" type="x-shader/x-fragment">
@@ -69,6 +70,7 @@
       fragColor = vRgba;
       //fragColor.rgb *= fragColor.a;
       
+      //float d = 0.1*pow(maxStdDev/length(vSplatUv), 1.5);
       float d = exp(-0.5*dot(vSplatUv,vSplatUv));
       //float d = smoothstep(1., 0., length(vSplatUv/maxStdDev));
       //float d = cos(length(vSplatUv/maxStdDev)*PI)*0.5 + 0.5;
@@ -112,8 +114,8 @@
 
     void main() {
       vec4 o = texture(tDiffuse, vUv);
-      o *= 0.06;
-      //o = tanh(o*o);
+      o *= 0.1;
+      //o = tanh(o);
       o = pow(o, vec4(1)/2.2);
       gl_FragColor = o;
     }

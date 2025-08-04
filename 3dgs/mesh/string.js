@@ -30,11 +30,12 @@ function initStr(xyzw, w, h, x, y, amps) {
   //py *= Math.cos(pz);
   //pz = Math.sin(pz);
 
+  let len = Math.hypot(px, py, pz, pw);
   let i = y * w + x;
-  xyzw[i * 4 + 0] = px; // * Math.cos(pw);
-  xyzw[i * 4 + 1] = py; // * Math.cos(pw);
-  xyzw[i * 4 + 2] = pz; // * Math.cos(pw);
-  xyzw[i * 4 + 3] = pw; // Math.sin(pw);
+  xyzw[i * 4 + 0] = px / len; // * Math.cos(pw);
+  xyzw[i * 4 + 1] = py / len; // * Math.cos(pw);
+  xyzw[i * 4 + 2] = pz / len; // * Math.cos(pw);
+  xyzw[i * 4 + 3] = pw / len; // Math.sin(pw);
 }
 
 const vec4 = () => new Float32Array(4);
@@ -51,7 +52,7 @@ function tex(res, rgba, w, h, x, y) {
   res[3] = rgba[i * 4 + 3];
 }
 
-function moveStr(tmp, xyzw, w, h, x, y, g, [dx, dt]) {
+function moveStr(tmp, xyzw, w, h, x, y, damping, [dx, dt]) {
   if (tmp.length == 0)
     for (let i = 0; i < 7; i++)
       tmp[i] = vec4();
@@ -90,7 +91,6 @@ function moveStr(tmp, xyzw, w, h, x, y, g, [dx, dt]) {
   //      ds[i] += dt2 * g[i] * (1 - gc / g2);
   //}
 
-  let damping = 0.001;
   for (let i = 0; i < 4; i++)
     ds[i] += dt * damping * prev[i];
 
@@ -114,8 +114,8 @@ export function createMesh(w, h, { sid, rgb, amps, timespan } = {}) {
         amps[s] += a * vol;
       }
     };
-    add(2, -0.8, 10);
-    add(2, -1.8, -8);
+    add(2, -0.8, 9);
+    add(2, -1.8, -6);
   }
 
   console.debug('Amps:', [...amps].map(a => a.toFixed(2)).join(',')
@@ -128,19 +128,20 @@ export function createMesh(w, h, { sid, rgb, amps, timespan } = {}) {
   let tmp = [];
   let dx = timespan[0] / w;
   let dt = timespan[1] / h;
+  let damping = 0.001;
   console.debug('dt/dx=' + (dt / dx).toFixed(2));
   if (dt / dx > 0.5) console.warn('dx/dt > 0.5 is unstable');
 
   for (let y = 2; y < h; y++) {
-    let g = [0, 0, 0, 0];
     for (let x = 0; x < w; x++) {
-      let c = moveStr(tmp, str4, w, h, x, y - 1, g, [dx, dt]);
+      let c = moveStr(tmp, str4, w, h, x, y - 1, damping, [dx, dt]);
       str4.set(c, (y * w + x) * 4);
     }
   }
 
   return {
     iColor: rgb,
+    iDT: dt, iDX: dx, iDamping: damping,
     iMesh: new Float32Tensor([h, w, 4], str4),
   };
 }
