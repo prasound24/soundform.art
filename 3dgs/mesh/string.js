@@ -111,11 +111,12 @@ export function createMesh(w, h, { sid, rgb, amps, timespan } = {}) {
       for (let s = 0; s < amps.length; s += num) {
         let a = hash11(sid + s / num) - 0.5;
         if (s > 0) a *= Math.exp(pow * (s / num));
+        //if (s > 0) a *= (s / num) ** pow;
         amps[s] += a * vol;
       }
     };
-    add(2, -0.8, 9);
-    add(2, -1.8, -6);
+    add(3, -1.3, 10);
+    add(3, -1.7, -9);
   }
 
   console.debug('Amps:', [...amps].map(a => a.toFixed(2)).join(',')

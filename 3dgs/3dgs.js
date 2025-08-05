@@ -5,7 +5,7 @@ const sid = parseFloat('0.' + (uargs.get('sid') || '')) || Math.random();
 const sphRadius = +uargs.get('r') || 2.0;
 const camDist = +uargs.get('cam') || 1.5;
 const backgroundURL = uargs.get('bg') || '/img/bb3.jpg';
-const colorRGBA = (uargs.get('c') || '0.1,0.2,0.3,1.0').split(',').map(x => +x || 0);
+const colorRGBA = (uargs.get('c') || '0,0,0,1.0').split(',').map(x => +x || Math.random());
 const useAdditiveBlending = +uargs.get('blend') || 0;
 const imgSize = (uargs.get('i') || '0x0').split('x').map(x => +x);
 const timespan = (uargs.get('t') || '1x1').split('x').map(x => +x);
@@ -13,7 +13,7 @@ const rotation = +uargs.get('rot') || 0;
 const signature = uargs.get('l') || '@soundform.art';
 const useMotion = +uargs.get('motion') || 0;
 const dxdy = (uargs.get('dxdy') || (useMotion ? '0,0' : '0,1')).split(',').map(x => +x || 0);
-const quality = +uargs.get('q') || 1.0;
+const quality = +(uargs.get('q') ?? '1');
 const aperture = +uargs.get('aperture') || 0;
 const numFrames = +uargs.get('numf') || (Math.hypot(...dxdy) > 0 ? 10000 : 0);
 const stringAmps = (uargs.get('amps') || '0').split(',').map(x => +x || 0);
@@ -44,6 +44,7 @@ const img = {
   get height() { return imgSize[1] || window.innerHeight; },
 };
 
+console.log('Quality:', quality ? 'High' : 'Low');
 console.log('Color:', colorRGBA.map(x => x.toFixed(2)).join(','));
 
 const stats = { numSplats: 0, prevFrames: 0 };
@@ -54,7 +55,13 @@ camera.position.set(camDist, camDist, camDist);
 const renderer = new THREE.WebGLRenderer(
   { canvas, alpha: true, antialias: false, preserveDrawingBuffer: true });
 
-const spark = new SparkRenderer({ renderer, view: { sort32: true }, material: initMaterial });
+const spark = new SparkRenderer({
+  renderer,
+  minAlpha: 0,
+  //premultipliedAlpha: !useAdditiveBlending,
+  view: { sort32: quality == 1, stochastic: quality == 0 },
+  material: initMaterial,
+});
 scene.add(spark);
 
 if (quality == 1) {
@@ -148,12 +155,12 @@ function initMaterial(mat) {
   console.log('Blending mode:', useAdditiveBlending ? 'additive' : 'normal');
   if (!useAdditiveBlending)
     return mat;
-  mat.vertexShader = mat.vertexShader
-    .replace('out vec3 vNdc;', 'out vec3 vNdc; out vec2 vNdcOffset; out vec2 vNdcScales;')
-    .replace('vNdc = ndc;', 'vNdc = ndc; vNdcOffset = ndcOffset; vNdcScales = 2.0/scaledRenderSize*min(vec2(MAX_PIXEL_RADIUS),maxStdDev*sqrt(vec2(eigen1,eigen2)));');
+  //mat.vertexShader = mat.vertexShader
+  //  .replace('out vec3 vNdc;', 'out vec3 vNdc; out vec2 vNdcOffset; out vec2 vNdcScales;')
+  //  .replace('vNdc = ndc;', 'vNdc = ndc; vNdcOffset = ndcOffset; vNdcScales = 2.0/scaledRenderSize*min(vec2(MAX_PIXEL_RADIUS),maxStdDev*sqrt(vec2(eigen1,eigen2)));');
   //console.debug(mat.vertexShader);
   mat.fragmentShader = mat.fragmentShader
-    .replace('in vec3 vNdc;', 'in vec3 vNdc; in vec2 vNdcOffset; in vec2 vNdcScales;')
+    //.replace('in vec3 vNdc;', 'in vec3 vNdc; in vec2 vNdcOffset; in vec2 vNdcScales;')
     .replace('void main()', 'void mainSpark()');
   mat.fragmentShader += '\n' + $('#spark-frag-glsl').textContent;
   //console.debug(mat.fragmentShader);
@@ -442,7 +449,7 @@ renderer.setAnimationLoop((time) => {
   statsUI.update();
   composer.render();
 
-  if (recorder && animateFrame.value % 4 == 0) 
+  if (recorder && animateFrame.value % 4 == 0)
     recorder.stream.requestFrame?.();
 });
 

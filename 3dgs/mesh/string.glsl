@@ -68,7 +68,7 @@ void mainSplatModifier(inout Gsplat gs) {
   gs.scales = vec3(r);
   //gs.center += r*0.02*(hash4(iTime).xyz - 0.5);
   //gs.rgba = iColor; // vec4(1)
-  gs.rgba = cos(PI2*(-t + iColor))*0.5 + 0.5;
+  gs.rgba = cos(PI2*(pos.w - t + iColor))*0.5 + 0.5;
   gs.rgba.a = iColor.a;
-  //gs.rgba *= 1.0 - t*t;
+  gs.rgba.a *= 1.0 - t*t;
 }
