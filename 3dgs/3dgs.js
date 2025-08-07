@@ -21,6 +21,7 @@ const maxFrames = +uargs.get('maxframes') || (useMotion ? Infinity : 500);
 
 import * as THREE from "three";
 import Stats from 'three/addons/libs/stats.module.js';
+import { FullScreenQuad } from "three/addons/postprocessing/Pass.js";
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
@@ -30,7 +31,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { SparkRenderer, SplatMesh, PackedSplats, dyno } from "@sparkjsdev/spark";
 
 import * as utils from '../lib/utils.js';
-const { $, mix, clamp, check, fract, DEBUG } = utils;
+const { $, mix, clamp, dcheck, check, fract, DEBUG } = utils;
 
 if (!isEmbedded) {
   $('h1').style.display = '';
@@ -493,34 +494,104 @@ async function initCodeMirror() {
   };
 }
 
+function downloadTextureData(tex) {
+  // This pile of crap translates the 3 simple lines below into the THREE.js lingo:
+  //
+  //  gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo_id);
+  //  gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex_id, 0);
+  //  gl.readPixels(0, 0, width, height, gl.RGBA, type, tempbuf);
+  //
+  const dummyShader = new THREE.ShaderMaterial({
+    uniforms: {
+      iTexture: { value: tex }
+    },
+    vertexShader: `
+      out vec2 vUv;
+
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }`,
+    fragmentShader: `
+      in vec2 vUv;
+      uniform usampler2DArray iTexture;
+
+      void main() {
+        ivec3 size = textureSize(iTexture, 0);
+        uvec4 sp = texelFetch(iTexture, ivec3(vUv*vec2(size), 0), 0);
+        #define bits uintBitsToFloat
+        gl_FragColor = vec4(bits(sp.x), bits(sp.y), bits(sp.z), bits(sp.w));
+      }`,
+  });
+
+  const dummyMesh = new FullScreenQuad(dummyShader);
+  const { width, height, depth } = tex.image;
+  utils.dcheck(depth == 1);
+
+  const dummyTarget = new THREE.WebGLArrayRenderTarget(width, height, depth, {
+    depthBuffer: false,
+    stencilBuffer: false,
+    generateMipmaps: false,
+    magFilter: THREE.NearestFilter,
+    minFilter: THREE.NearestFilter,
+  });
+  
+  dummyTarget.texture.format = THREE.RGBAFormat;
+  dummyTarget.texture.type = THREE.FloatType;
+
+  renderer.setRenderTarget(dummyTarget);
+  dummyMesh.render(renderer);
+
+  const count = width * height * depth;
+  const data = new Float32Array(count * 4);
+  renderer.readRenderTargetPixels(dummyTarget, 0, 0, width, height, data);
+
+  dummyTarget.dispose();
+  dummyMesh.dispose();
+  dummyShader.dispose();
+
+  return data;
+}
+
 async function downloadMesh() {
+  console.log('Downloading splats data from GPU...');
+  let tex = spark.active.splats.getTexture();
+  let data = downloadTextureData(tex);
+  let packedArray = new Uint32Array(data.buffer);
+  let checksum = packedArray.reduce((s, x) => Math.max(s, x), 0);
+  dcheck(checksum); // it fails sometimes
+  console.debug(packedArray.slice(0, 16));
+
+  console.log('Unpacking splats data...');
+  let packedSplats = new PackedSplats({ packedArray });
   let gsm = {};
+
   console.log('Enumerating splats...');
-  gsm.xyzw = new Float32Array(stats.numSplats * 4);
-  gsm.rgba = new Float32Array(stats.numSplats * 4);
-  let index = 0;
+  gsm.xyzw = new Float32Array(packedSplats.numSplats * 4);
+  gsm.rgba = new Float32Array(packedSplats.numSplats * 4);
 
-  for (let mesh of scene.children) {
-    if (!mesh.numSplats)
-      continue;
-    mesh.forEachSplat((splatId, center, scales, quaternion, opacity, color) => {
-      let i = index++;
-      if (i >= gsm.rgba.length / 4)
-        return;
+  packedSplats.forEachSplat((splatId, center, scales, quaternion, opacity, color) => {
+    let i = splatId;
+    dcheck(i < gsm.rgba.length / 4);
 
-      gsm.xyzw[4 * i + 0] = center.x;
-      gsm.xyzw[4 * i + 1] = -center.y;
-      gsm.xyzw[4 * i + 2] = center.z;
-      gsm.xyzw[4 * i + 3] = scales.x;
+    let { x, y, z } = center;
+    dcheck(Math.hypot(x, y, z) >= 0);
 
-      gsm.rgba[4 * i + 0] = color.r;
-      gsm.rgba[4 * i + 1] = color.g;
-      gsm.rgba[4 * i + 2] = color.b;
-      gsm.rgba[4 * i + 3] = opacity;
-    });
-  }
+    gsm.xyzw[4 * i + 0] = x;
+    gsm.xyzw[4 * i + 1] = -y;
+    gsm.xyzw[4 * i + 2] = z;
+    gsm.xyzw[4 * i + 3] = scales.x;
 
-  console.log('Creating a .ply file...');
+    let { r, g, b } = color;
+    dcheck(Math.hypot(r, g, b) >= 0);
+
+    gsm.rgba[4 * i + 0] = r;
+    gsm.rgba[4 * i + 1] = g;
+    gsm.rgba[4 * i + 2] = b;
+    gsm.rgba[4 * i + 3] = opacity;
+  });
+
+  console.log('Creating a PLY file...');
   const ply = await import("../lib/ply.js");
   const blob = ply.exportPLY(gsm.xyzw.length / 4, 1, gsm.xyzw, gsm.rgba);
   console.log('.ply file size:', (blob.size / 1e6).toFixed(1), 'MB');
